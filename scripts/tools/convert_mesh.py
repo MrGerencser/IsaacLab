@@ -69,6 +69,16 @@ parser.add_argument(
     default=None,
     help="The mass (in kg) to assign to the converted asset. If not provided, then no mass is added.",
 )
+
+# Add scale argument
+parser.add_argument(
+    "--scale",
+    type=float,
+    nargs=3, # Expect 3 float values (x, y, z)
+    default=[1.0, 1.0, 1.0], # Default to no scaling
+    help="Scale factor to apply to the mesh during conversion (e.g., 0.001 0.001 0.001 for mm to m).",
+)
+
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 # parse the arguments
@@ -119,16 +129,18 @@ def main():
 
     # Create Mesh converter config
     mesh_converter_cfg = MeshConverterCfg(
-        mass_props=mass_props,
-        rigid_props=rigid_props,
-        collision_props=collision_props,
-        asset_path=mesh_path,
-        force_usd_conversion=True,
-        usd_dir=os.path.dirname(dest_path),
-        usd_file_name=os.path.basename(dest_path),
-        make_instanceable=args_cli.make_instanceable,
-        collision_approximation=args_cli.collision_approximation,
-    )
+    mass_props=mass_props,
+    rigid_props=rigid_props,
+    collision_props=collision_props,
+    asset_path=mesh_path,
+    force_usd_conversion=True,
+    usd_dir=os.path.dirname(dest_path),
+    usd_file_name=os.path.basename(dest_path),
+    make_instanceable=args_cli.make_instanceable,
+    collision_approximation=args_cli.collision_approximation,
+    # Pass the scale argument from CLI
+    scale=tuple(args_cli.scale),
+    )   
 
     # Print info
     print("-" * 80)

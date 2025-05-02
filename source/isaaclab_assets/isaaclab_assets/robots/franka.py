@@ -85,3 +85,20 @@ FRANKA_PANDA_HIGH_PD_CFG.actuators["panda_forearm"].damping = 80.0
 
 This configuration is useful for task-space control using differential IK.
 """
+
+FRANKA_PANDA_STABLE_CFG = FRANKA_PANDA_CFG.copy()
+FRANKA_PANDA_STABLE_CFG.spawn.rigid_props.disable_gravity = True
+
+# Higher damping relative to stiffness for better oscillation control
+FRANKA_PANDA_STABLE_CFG.actuators["panda_shoulder"].stiffness = 300.0  # Slightly lower stiffness
+FRANKA_PANDA_STABLE_CFG.actuators["panda_shoulder"].damping = 120.0    # Higher damping
+FRANKA_PANDA_STABLE_CFG.actuators["panda_forearm"].stiffness = 200.0   # Lower stiffness for wrist
+FRANKA_PANDA_STABLE_CFG.actuators["panda_forearm"].damping = 100.0     # Higher damping ratio
+
+# Better solver settings for stability
+FRANKA_PANDA_STABLE_CFG.spawn.articulation_props = sim_utils.ArticulationRootPropertiesCfg(
+    enabled_self_collisions=True, 
+    solver_position_iteration_count=12,
+    solver_velocity_iteration_count=4  # Add velocity iterations
+)
+"""Configuration optimized for stability and minimal oscillations."""

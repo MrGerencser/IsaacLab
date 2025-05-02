@@ -51,3 +51,5 @@ def object_reached_goal(
 
     # rewarded if the object is lifted above the threshold
     return distance < threshold
+
+    

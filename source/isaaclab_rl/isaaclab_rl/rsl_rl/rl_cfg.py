@@ -107,7 +107,7 @@ class RslRlPpoAlgorithmCfg:
     clip_param: float = MISSING
     """The clipping parameter for the policy."""
 
-    normalize_advantage_per_mini_batch: bool = False
+    # normalize_advantage_per_mini_batch: bool = False
     """Whether to normalize the advantage per mini-batch. Default is False.
 
     If True, the advantage is normalized over the entire collected trajectories.

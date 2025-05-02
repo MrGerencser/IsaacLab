@@ -41,6 +41,8 @@ import isaaclab.sim as sim_utils
 import isaaclab.utils.math as math_utils
 from isaaclab.assets import RigidObject, RigidObjectCfg
 from isaaclab.sim import SimulationContext
+# Import UsdFileCfg
+from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 
 
 def design_scene():
@@ -58,20 +60,39 @@ def design_scene():
     for i, origin in enumerate(origins):
         prim_utils.create_prim(f"/World/Origin{i}", "Xform", translation=origin)
 
-    # Rigid Object
+    # Rigid Object - Spawn from USD file
     cone_cfg = RigidObjectCfg(
-        prim_path="/World/Origin.*/Cone",
-        spawn=sim_utils.ConeCfg(
-            radius=0.1,
-            height=0.2,
-            rigid_props=sim_utils.RigidBodyPropertiesCfg(),
-            mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
-            collision_props=sim_utils.CollisionPropertiesCfg(),
-            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
+        prim_path="/World/Origin.*/Cone", # Spawn a cone under each origin
+        spawn=UsdFileCfg( # Use UsdFileCfg instead of ConeCfg
+            usd_path="/home/chris/IsaacLab/assets/my_custom_assets/usd/cone.usd", # Path to your cone USD
+            # Add scale if your USD is not in meters (e.g., from mm)
+            # scale=(0.001, 0.001, 0.001),
+            # Keep physics properties inside for this test
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(), # Use default rigid props
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.1), # Set your cone's mass
+            collision_props=sim_utils.CollisionPropertiesCfg(), # Use convex hull collision
+            # Remove visual_material, radius, height - they come from the USD
         ),
-        init_state=RigidObjectCfg.InitialStateCfg(),
+        # Adjust initial state Z-position if needed based on cone's origin/height
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 0.0, 0.1)), # Start slightly above ground
     )
     cone_object = RigidObject(cfg=cone_cfg)
+    
+    
+    # # Rigid Object
+    # cone_cfg = RigidObjectCfg(
+    #     prim_path="/World/Origin.*/Cone",
+    #     spawn=sim_utils.ConeCfg(
+    #         radius=0.1,
+    #         height=0.2,
+    #         rigid_props=sim_utils.RigidBodyPropertiesCfg(),
+    #         mass_props=sim_utils.MassPropertiesCfg(mass=1.0),
+    #         collision_props=sim_utils.CollisionPropertiesCfg(),
+    #         visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.0, 1.0, 0.0), metallic=0.2),
+    #     ),
+    #     init_state=RigidObjectCfg.InitialStateCfg(),
+    # )
+    # cone_object = RigidObject(cfg=cone_cfg)
 
     # return the scene information
     scene_entities = {"cone": cone_object}

@@ -29,3 +29,19 @@ def object_position_in_robot_root_frame(
         robot.data.root_state_w[:, :3], robot.data.root_state_w[:, 3:7], object_pos_w
     )
     return object_pos_b
+
+
+def object_orientation_in_robot_frame(
+    env: ManagerBasedRLEnv,
+    robot_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object"),
+) -> torch.Tensor:
+    """The orientation of the object as a quaternion in the robot's frame."""
+    robot: RigidObject = env.scene[robot_cfg.name]
+    object: RigidObject = env.scene[object_cfg.name]
+    object_quat_w = object.data.root_quat_w
+    _, object_quat_b = subtract_frame_transforms(
+        robot.data.root_state_w[:, :3], robot.data.root_state_w[:, 3:7], 
+        None, object_quat_w
+    )
+    return object_quat_b
