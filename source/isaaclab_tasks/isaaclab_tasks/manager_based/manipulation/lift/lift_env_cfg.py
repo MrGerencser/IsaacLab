@@ -47,8 +47,10 @@ from isaaclab.envs.mdp.rewards import (
 @configclass
 class ObjectTableSceneCfg(InteractiveSceneCfg):
     """Configuration for the lift scene with a robot and an object."""
-    robot: ArticulationCfg = FRANKA_PANDA_STABLE_CFG
+    robot: ArticulationCfg = MISSING
     ee_frame: FrameTransformerCfg = MISSING
+    object_frame: FrameTransformerCfg = MISSING
+    robot_frame: FrameTransformerCfg = MISSING
     object: RigidObjectCfg | DeformableObjectCfg = MISSING
 
     table = AssetBaseCfg(
@@ -82,8 +84,8 @@ class CommandsCfg:
         resampling_time_range=(5.0, 5.0),
         debug_vis=True,
         ranges=mdp.UniformPoseCommandCfg.Ranges(
-            pos_x=(0.4, 0.6), pos_y=(-0.25, 0.25), pos_z=(0.25, 0.5),
-            roll=(0.0, 0.0), pitch=(0.0, 0.0), yaw=(0.0, 0.0)
+            pos_x=(0.5, 0.5), pos_y=(0.0, 0.0), pos_z=(0.5, 0.5),
+            roll=(3.14159, 3.14159), pitch=(0.0, 0.0), yaw=(0.0, 0.0)
         ),
     )
 
@@ -105,6 +107,8 @@ class ObservationsCfg:
         object_orientation = ObsTerm(func=mdp.object_orientation_in_robot_frame)
         target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose"})
         actions = ObsTerm(func=mdp.last_action)
+        # ee_height = ObsTerm(func=mdp.ee_height_to_table, params={"table_height": 0.0})
+
 
         def __post_init__(self):
             self.enable_corruption = True
@@ -122,12 +126,12 @@ class EventCfg:
         mode="reset",
         params={
             "pose_range": {
-                "x": (-0.1, 0.1),
-                "y": (-0.25, 0.25),
+                "x": (-0.3, 0.3),
+                "y": (-0.35, 0.35),
                 "z": (0.0, 0.0),
-                "roll": (-3.14, 3.14),
-                "pitch": (-3.14, 3.14),
-                "yaw": (-3.14, 3.14),
+                "roll": (0.0, 0.0),
+                "pitch": (0.0, 0.0),
+                "yaw": (0.0, 0.0),
             },
             "velocity_range": {},
             "asset_cfg": SceneEntityCfg("object", body_names="Object"),
@@ -139,24 +143,82 @@ class EventCfg:
 class RewardsCfg:
     """Reward terms for the MDP."""
 
-    reaching_object = RewTerm(func=mdp.object_ee_distance, params={"std": 0.1}, weight=7.0)
-
-    lifting_object = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.04}, weight=15.0)
-    
-    lifting_object_fine_grained = RewTerm(func=mdp.object_is_lifted, params={"minimal_height": 0.1}, weight=0.0)
-    
-
-    object_goal_tracking = RewTerm(
-        func=mdp.object_goal_distance,
-        params={"std": 0.3, "minimal_height": 0.04, "command_name": "object_pose"},
-        weight=16.0,
+    reach = RewTerm(
+        func=mdp.object_ee_distance,
+        params={
+            "std":               0.1,
+            "bonus_threshold":   0.02,
+            "bonus_weight":      0.3,
+            "object_cfg":        SceneEntityCfg("object"),
+            "ee_frame_cfg":      SceneEntityCfg("ee_frame"),
+        },
+        weight=7.0,
     )
 
-    object_goal_tracking_fine_grained = RewTerm(
-        func=mdp.object_goal_distance,
-        params={"std": 0.05, "minimal_height": 0.04, "command_name": "object_pose"},
-        weight=5.0,
+    lifted = RewTerm(
+        func=mdp.object_is_lifted,
+        params={
+            "minimal_height": 0.04,
+            "lift_width":     0.01,
+            "object_cfg":     SceneEntityCfg("object"),
+        },
+        weight=20.0,
     )
+    
+    pos_reward = RewTerm(
+        func=mdp.object_goal_distance_pos,
+        params={
+            "std":           0.3,
+            "minimal_height":0.04,
+            "lift_width":    0.01,
+            "command_name":  "object_pose",
+            "robot_cfg":      SceneEntityCfg("robot"),
+            "object_cfg":     SceneEntityCfg("object"),
+        },
+        weight=10.0,
+    )
+    
+    ori_reward = RewTerm(
+        func=mdp.ee_goal_distance_ori,
+        params={
+            "std":          0.2,
+            "command_name":"object_pose",
+            "robot_cfg":      SceneEntityCfg("robot"),
+            "ee_frame_cfg": SceneEntityCfg("ee_frame"),
+        },
+        weight=0.0,   # Adjust as needed based on other rewards
+    )
+    
+    # ori_reward = RewTerm(
+    #     func=mdp.object_goal_distance_ori,
+    #     params={
+    #         "std":          0.2,
+    #         "command_name":"object_pose",
+    #         "robot_cfg":      SceneEntityCfg("robot"),
+    #         "object_cfg":     SceneEntityCfg("object"),
+    #     },
+    #     weight=0.0,  # start at 0 and ramp up via curriculum
+    # )
+    
+    # slip_penalty = RewTerm(
+    # func=mdp.object_slip_penalty_norm,
+    # params={"threshold": 0.01, "object_cfg": SceneEntityCfg("object"), "ee_frame_cfg": SceneEntityCfg("ee_frame")},
+    # weight=-0.2,     # so slip=thr ⇒ penalty≈−0.2
+    # )
+    
+    lift_shaping = RewTerm(
+        func=mdp.potential_based_lift,
+        params={"minimal_height": 0.04, "object_cfg": SceneEntityCfg("object")},
+        weight=9.1,    # so full-lift ⇒ ≈+1.0 total shaping
+    )
+
+    # table_penalty = RewTerm(
+    # func=mdp.ee_table_penalty,
+    # params={"table_height": 0.0},
+    # weight=0.0,
+    # )
+
+
 
     # action penalty
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-4)
@@ -192,32 +254,98 @@ class TerminationsCfg:
     object_dropping = DoneTerm(
         func=mdp.root_height_below_minimum, params={"minimum_height": -0.05, "asset_cfg": SceneEntityCfg("object")}
     )
+    
+    # table_collision = DoneTerm(
+    # func=mdp.ee_hits_table, params={"table_height": 0.0}
+    # )
+
 
 
 @configclass
 class CurriculumCfg:
     """Curriculum terms for the MDP."""
     
-    reaching_object = CurrTerm(
+    reach = CurrTerm(
         # num_steps = iterations * num_steps_per_env
         func=mdp.gradually_modify_reward_weight, params={
-            "term_name": "reaching_object",
+            "term_name": "reach",
             "start_weight": 7.0,
-            "end_weight": 1.0,
-            "num_steps": 200 * 24,
+            "end_weight": 0.0,
+            "num_steps": 2000 * 24,
             "curve_type": "linear",
             "start_step": 100 * 24,
         }
     )
     
-    lifting_object_fine_grained = CurrTerm(
-        # num_steps = iterations * num_steps_per_env
-        func=mdp.modify_reward_weight, params={
-            "term_name": "lifting_object_fine_grained",
-            "weight": 15.0,
-            "num_steps": 600 * 24,
+    pos_reward_ramp = CurrTerm(
+        func=mdp.gradually_modify_reward_weight, params={
+            "term_name": "pos_reward",
+            "start_weight": 10.0,
+            "end_weight": 30.0,
+            "num_steps": 2000 * 24,
+            "curve_type": "linear",
+            "start_step": 1000 * 24,
         }
     )
+    
+    pos_reward_decay = CurrTerm(
+        func=mdp.gradually_modify_reward_weight, params={
+            "term_name": "pos_reward",
+            "start_weight": 30.0,
+            "end_weight": 5.0,
+            "num_steps": 2000 * 24,
+            "curve_type": "linear",
+            "start_step": 2500 * 24,
+        }
+    )
+    
+    ori_reward = CurrTerm(
+        func=mdp.gradually_modify_reward_weight, params={
+            "term_name": "ori_reward",
+            "start_weight": 0.0,
+            "end_weight": 20.0,
+            "num_steps": 3000 * 24,
+            "curve_type": "linear",
+            "start_step": 500 * 24,
+        }
+    )
+    
+    # slip_penalty_ramp = CurrTerm(
+    #     func=mdp.gradually_modify_reward_weight,
+    #     params={
+    #         "term_name": "slip_penalty",
+    #         "start_weight": 0.0,
+    #         "end_weight": -0.2,
+    #         "num_steps": 1000 * 24,
+    #         "curve_type": "linear",
+    #         "start_step": 1000 * 24,
+    #     }
+    # )
+    
+    lift_shaping = CurrTerm(
+        func= mdp.gradually_modify_reward_weight,
+        params={
+            "term_name": "lift_shaping",
+            "start_weight": 9.1,
+            "end_weight": 0.0,
+            "num_steps": 1500 * 24,
+            "curve_type": "linear",
+            "start_step": 1500 * 24,
+        }
+    )
+    
+    # table_penalty_ramp = CurrTerm(
+    # func=mdp.gradually_modify_reward_weight,
+    # params={
+    #     "term_name": "table_penalty",
+    #     "start_weight": 0.0,
+    #     "end_weight":   1.0,
+    #     "num_steps":    1000*24,
+    #     "curve_type":   "linear",
+    #     "start_step":   1500,
+    #     },
+    # )
+
     
     # # Increase the weight of the multi-grasp penalty term
     # multi_grasp_penalty = CurrTerm(
@@ -249,16 +377,38 @@ class CurriculumCfg:
     # )
     
     
-    # Sudden increase the weight of the action rate term
     action_rate = CurrTerm(
-        # num_steps = iterations * num_steps_per_env
-        func=mdp.modify_reward_weight, params={"term_name": "action_rate", "weight": -1e-1, "num_steps": 1000 * 24}
+        func=mdp.gradually_modify_reward_weight, params={
+            "term_name": "action_rate",
+            "start_weight": -1e-4,
+            "end_weight": -10.0,
+            "num_steps": 2000 * 24,
+            "curve_type": "exp",
+            "start_step": 2000 * 24,
+        }
     )
-
+    
     joint_vel = CurrTerm(
-        # num_steps = iterations * num_steps_per_env
-        func=mdp.modify_reward_weight, params={"term_name": "joint_vel", "weight": -1e-1, "num_steps": 1000 * 24} 
+        func=mdp.gradually_modify_reward_weight, params={
+            "term_name": "joint_vel",
+            "start_weight": -1e-4,
+            "end_weight": -1.0,
+            "num_steps": 2000 * 24,
+            "curve_type": "exp",
+            "start_step": 2000 * 24,
+        }
     )
+    
+    # # Sudden increase the weight of the action rate term
+    # action_rate = CurrTerm(
+    #     # num_steps = iterations * num_steps_per_env
+    #     func=mdp.modify_reward_weight, params={"term_name": "action_rate", "weight": -1e-1, "num_steps": 2500 * 24}
+    # )
+
+    # joint_vel = CurrTerm(
+    #     # num_steps = iterations * num_steps_per_env
+    #     func=mdp.modify_reward_weight, params={"term_name": "joint_vel", "weight": -1e-1, "num_steps": 2500 * 24} 
+    # )
     
     # joint_acc = CurrTerm(
     #     # num_steps = iterations * num_steps_per_env

@@ -15,7 +15,10 @@ from isaaclab.app import AppLauncher
 import cli_args  # isort: skip
 
 # add argparse arguments
-parser = argparse.ArgumentParser(description="Train an RL agent with RSL-RL.")
+parser = argparse.ArgumentParser(
+    description="Train an RL agent with RSL-RL.",
+    conflict_handler='resolve'
+)
 parser.add_argument("--video", action="store_true", default=False, help="Record videos during training.")
 parser.add_argument("--video_length", type=int, default=200, help="Length of the recorded video (in steps).")
 parser.add_argument(
@@ -29,6 +32,7 @@ parser.add_argument(
     help="Use the pre-trained checkpoint from Nucleus.",
 )
 parser.add_argument("--real-time", action="store_true", default=False, help="Run in real-time, if possible.")
+parser.add_argument("--slowdown", type=float, default=1.0, help="Slowdown factor for simulation playback.")
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
@@ -134,6 +138,8 @@ def main():
         policy_nn, normalizer=ppo_runner.obs_normalizer, path=export_model_dir, filename="policy.onnx"
     )
 
+    slowdown_factor = getattr(args_cli, "slowdown", 1.0)  # Use slowdown factor if provided, default 1.0
+
     dt = env.unwrapped.step_dt
 
     # reset environment
@@ -155,7 +161,7 @@ def main():
                 break
 
         # time delay for real-time evaluation
-        sleep_time = dt - (time.time() - start_time)
+        sleep_time = slowdown_factor * dt - (time.time() - start_time)
         if args_cli.real_time and sleep_time > 0:
             time.sleep(sleep_time)
 

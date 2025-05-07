@@ -37,6 +37,13 @@ def add_rsl_rl_args(parser: argparse.ArgumentParser):
     arg_group.add_argument(
         "--log_project_name", type=str, default=None, help="Name of the logging project when using wandb or neptune."
     )
+    # -- simulation playback arguments
+    parser.add_argument(
+        "--slowdown",
+        type=float,
+        default=1.0,
+        help="Slowdown factor for simulation playback, e.g. 2.0 will double the sleep time."
+    )
 
 
 def parse_rsl_rl_cfg(task_name: str, args_cli: argparse.Namespace) -> RslRlOnPolicyRunnerCfg:

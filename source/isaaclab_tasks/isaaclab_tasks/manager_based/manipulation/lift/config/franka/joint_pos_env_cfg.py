@@ -48,7 +48,7 @@ class FrankaCubeLiftEnvCfg(LiftEnvCfg):
         self.scene.object = RigidObjectCfg(
             prim_path="{ENV_REGEX_NS}/Object",
             # Adjust initial position/rotation if needed for the cone's size/origin
-            init_state=RigidObjectCfg.InitialStateCfg(pos=[0.5, 0, 0.055], rot=[1, 0, 0, 0]),
+            init_state=RigidObjectCfg.InitialStateCfg(pos=[0.5, 0, 0.000], rot=      [1, 0, 0, 0]),
             spawn=UsdFileCfg(
                 # Make sure this path points correctly to your converted cone.usd file
                 usd_path="assets/my_custom_assets/usd/cone.usd",
@@ -88,9 +88,27 @@ class FrankaCubeLiftEnvCfg(LiftEnvCfg):
         marker_cfg = FRAME_MARKER_CFG.copy()
         marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
         marker_cfg.prim_path = "/Visuals/FrameTransformer"
+        
+        marker_cfg_object = marker_cfg.copy()   # or create a new config if needed
+        
+        # Add the object frame transformer configuration
+        self.scene.object_frame = FrameTransformerCfg(
+            prim_path="{ENV_REGEX_NS}/Object",  # same prim as the object
+            debug_vis=True,
+            visualizer_cfg=marker_cfg_object,
+            target_frames=[
+                FrameTransformerCfg.FrameCfg(
+                    prim_path="{ENV_REGEX_NS}/Object",  # if your object USD has a specific frame, use it here
+                    name="object_origin",
+                    offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
+                ),
+            ],
+        )
+        
+        
         self.scene.ee_frame = FrameTransformerCfg(
             prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
-            debug_vis=False,
+            debug_vis=True,
             visualizer_cfg=marker_cfg,
             target_frames=[
                 FrameTransformerCfg.FrameCfg(
@@ -102,7 +120,22 @@ class FrankaCubeLiftEnvCfg(LiftEnvCfg):
                 ),
             ],
         )
-
+        
+        
+        # visualize robot frame
+        self.scene.robot_frame = FrameTransformerCfg(
+            prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+            debug_vis=True,
+            visualizer_cfg=marker_cfg,
+            target_frames=[
+                FrameTransformerCfg.FrameCfg(
+                    prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
+                    name="robot_base",
+                    offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
+                ),
+            ],
+        )
+        
 
 @configclass
 class FrankaCubeLiftEnvCfg_PLAY(FrankaCubeLiftEnvCfg):

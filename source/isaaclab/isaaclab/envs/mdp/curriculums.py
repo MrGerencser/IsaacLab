@@ -59,48 +59,38 @@ def gradually_modify_reward_weight(
         curve_type: Type of interpolation ("linear", "quadratic", "cubic", "exp").
     """
     current_step = env.common_step_counter
-    
-    # Before the transition period
-    if current_step <= start_step:
-        # Set to start weight only if needed (avoids unnecessary updates)
-        term_cfg = env.reward_manager.get_term_cfg(term_name)
-        if term_cfg.weight != start_weight:
-            term_cfg.weight = start_weight
-            env.reward_manager.set_term_cfg(term_name, term_cfg)
+
+    # Do nothing until we reach the start of the transition
+    if current_step < start_step:
         return
-        
-    # After the transition period
+
+    # After the transition period: ensure final weight
     if current_step >= start_step + num_steps:
-        # Set to end weight only if needed
         term_cfg = env.reward_manager.get_term_cfg(term_name)
         if term_cfg.weight != end_weight:
             term_cfg.weight = end_weight
             env.reward_manager.set_term_cfg(term_name, term_cfg)
         return
-    
+
     # During the transition period - calculate progress (0 to 1)
     progress = (current_step - start_step) / num_steps
-    
+
     # Apply different interpolation curves
     if curve_type == "quadratic":
-        # Quadratic ease-in (starts slower, ends faster)
         progress = progress * progress
     elif curve_type == "cubic":
-        # Cubic ease-in (more pronounced slow start)
         progress = progress * progress * progress
     elif curve_type == "logarithmic":
-        # Logarithmic ease-in (starts fast, ends slower)
+        # ease-out style
         progress = 1 - (1 - progress) * (1 - progress)
     elif curve_type == "exp":
-        # Exponential transition
         import math
         progress = (math.exp(progress) - 1) / (math.e - 1)
-    # Default is linear (progress unchanged)
-    
-    # Calculate and set the new weight
+    # else: linear
+
+    # Interpolate weight
     new_weight = start_weight + progress * (end_weight - start_weight)
     term_cfg = env.reward_manager.get_term_cfg(term_name)
     term_cfg.weight = new_weight
     env.reward_manager.set_term_cfg(term_name, term_cfg)
-
 
