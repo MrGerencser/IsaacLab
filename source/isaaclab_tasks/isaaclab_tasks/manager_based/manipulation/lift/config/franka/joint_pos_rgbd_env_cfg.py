@@ -3,16 +3,18 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
+import isaaclab.sim as sim_utils
 from isaaclab.assets import RigidObjectCfg
-from isaaclab.sensors import FrameTransformerCfg
+from isaaclab.sensors import CameraCfg, FrameTransformerCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
+
 from isaaclab_tasks.manager_based.manipulation.lift import mdp
-from isaaclab_tasks.manager_based.manipulation.lift.lift_env_cfg import LiftEnvCfg
+from isaaclab_tasks.manager_based.manipulation.lift.lift_rgbd_env_cfg import LiftRGBDEnvCfg
 
 ##
 # Pre-defined configs
@@ -22,7 +24,7 @@ from isaaclab_assets.robots.franka import FRANKA_PANDA_CFG  # isort: skip
 
 
 @configclass
-class FrankaCubeLiftEnvCfg(LiftEnvCfg):
+class FrankaCubeLiftRGBDEnvCfg(LiftRGBDEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()
@@ -83,6 +85,32 @@ class FrankaCubeLiftEnvCfg(LiftEnvCfg):
         #         ),
         #     ),
         # )
+        
+        # Set table view camera
+        self.scene.table_cam = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/table_cam",
+            update_period=0.0333,
+            height=84,
+            width=84,
+            data_types=["rgb", "depth"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=4.0, focus_distance=400.0, horizontal_aperture=6.4, clipping_range=(0.1, 1.0e5)
+            ),
+            offset=CameraCfg.OffsetCfg(pos=(1.5, 1.0, 0.5), rot=(-0.336, -0.145, -0.053, 0.929), convention="world"),
+        )
+        
+        # Set table view camera
+        self.scene.table_cam_2 = CameraCfg(
+            prim_path="{ENV_REGEX_NS}/table_cam_2",
+            update_period=0.0333,
+            height=84,
+            width=84,
+            data_types=["rgb", "depth"],
+            spawn=sim_utils.PinholeCameraCfg(
+                focal_length=4.0, focus_distance=400.0, horizontal_aperture=6.4, clipping_range=(0.1, 1.0e5)
+            ),
+            offset=CameraCfg.OffsetCfg(pos=(1.5, -1.0, 0.5), rot=(0.336, -0.145, 0.053, 0.929), convention="world"),
+        )
 
         # Listens to the required transforms
         marker_cfg = FRAME_MARKER_CFG.copy()
@@ -138,7 +166,7 @@ class FrankaCubeLiftEnvCfg(LiftEnvCfg):
         
 
 @configclass
-class FrankaCubeLiftRGBDEnvCfg_PLAY(FrankaCubeLiftEnvCfg):
+class FrankaCubeLiftEnvCfg_PLAY(FrankaCubeLiftRGBDEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()

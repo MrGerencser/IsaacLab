@@ -247,6 +247,14 @@ def action_rate_l2(env: ManagerBasedRLEnv) -> torch.Tensor:
     return torch.sum(torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1)
 
 
+def action_rate_l2_no_gripper(env: ManagerBasedRLEnv) -> torch.Tensor:
+    """Penalize the rate of change of arm actions only, excluding gripper."""
+    # Gripper action is the last element of the action vector
+    arm_action = env.action_manager.action[:, :-1]
+    prev_arm_action = env.action_manager.prev_action[:, :-1]
+    return torch.sum(torch.square(arm_action - prev_arm_action), dim=1)
+
+
 def action_l2(env: ManagerBasedRLEnv) -> torch.Tensor:
     """Penalize the actions using L2 squared kernel."""
     return torch.sum(torch.square(env.action_manager.action), dim=1)

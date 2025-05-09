@@ -11,6 +11,9 @@ import carb
 import omni
 import omni.log
 
+import isaacsim
+
+
 from .ui_widget_wrapper import UIWidgetWrapper
 
 if TYPE_CHECKING:
