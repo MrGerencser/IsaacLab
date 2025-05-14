@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 import isaaclab.sim as sim_utils
-from isaaclab.assets import RigidObjectCfg
-from isaaclab.sensors import CameraCfg, FrameTransformerCfg
+from isaaclab.assets import RigidObjectCfg, AssetBaseCfg
+from isaaclab.sensors import TiledCameraCfg, CameraCfg, FrameTransformerCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import OffsetCfg
 from isaaclab.sim.schemas.schemas_cfg import RigidBodyPropertiesCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
@@ -46,35 +46,16 @@ class FrankaCubeLiftRGBDEnvCfg(LiftRGBDEnvCfg):
         self.commands.object_pose.body_name = "panda_hand"
         
         
-        # Set Cone as object
-        self.scene.object = RigidObjectCfg(
-            prim_path="{ENV_REGEX_NS}/Object",
-            # Adjust initial position/rotation if needed for the cone's size/origin
-            init_state=RigidObjectCfg.InitialStateCfg(pos=[0.5, 0, 0.000], rot=      [1, 0, 0, 0]),
-            spawn=UsdFileCfg(
-                # Make sure this path points correctly to your converted cone.usd file
-                usd_path="assets/my_custom_assets/usd/cone.usd",
-                # Remove or adjust scale if cone.usd is already in meters
-                # scale=(1.0, 1.0, 1.0), # Example: No scaling if cone.usd is in meters
-                rigid_props=RigidBodyPropertiesCfg(
-                    solver_position_iteration_count=16,
-                    solver_velocity_iteration_count=1,
-                    max_angular_velocity=1000.0,
-                    max_linear_velocity=1000.0,
-                    max_depenetration_velocity=5.0,
-                    disable_gravity=False,
-                ),
-            ),
-        )
-
-
-        # # Set Cube as object
+        # # Set Cone as object
         # self.scene.object = RigidObjectCfg(
         #     prim_path="{ENV_REGEX_NS}/Object",
-        #     init_state=RigidObjectCfg.InitialStateCfg(pos=[0.5, 0, 0.055], rot=[1, 0, 0, 0]),
+        #     # Adjust initial position/rotation if needed for the cone's size/origin
+        #     init_state=RigidObjectCfg.InitialStateCfg(pos=[0.5, 0, 0.000], rot=      [1, 0, 0, 0]),
         #     spawn=UsdFileCfg(
-        #         usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd",
-        #         scale=(0.8, 0.8, 0.8),
+        #         # Make sure this path points correctly to your converted cone.usd file
+        #         usd_path="assets/my_custom_assets/usd/cone.usd",
+        #         # Remove or adjust scale if cone.usd is already in meters
+        #         # scale=(1.0, 1.0, 1.0), # Example: No scaling if cone.usd is in meters
         #         rigid_props=RigidBodyPropertiesCfg(
         #             solver_position_iteration_count=16,
         #             solver_velocity_iteration_count=1,
@@ -85,32 +66,96 @@ class FrankaCubeLiftRGBDEnvCfg(LiftRGBDEnvCfg):
         #         ),
         #     ),
         # )
+
+
+        # Set Cube as object
+        self.scene.object = RigidObjectCfg(
+            prim_path="{ENV_REGEX_NS}/Object",
+            init_state=RigidObjectCfg.InitialStateCfg(pos=[0.5, 0.0, 0.055], rot=[1, 0, 0, 0]),
+            spawn=UsdFileCfg(
+                usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd",
+                scale=(0.8, 0.8, 0.8),
+                rigid_props=RigidBodyPropertiesCfg(
+                    solver_position_iteration_count=16,
+                    solver_velocity_iteration_count=1,
+                    max_angular_velocity=1000.0,
+                    max_linear_velocity=1000.0,
+                    max_depenetration_velocity=5.0,
+                    disable_gravity=False,
+                ),
+            ),
+        )
         
-        # Set table view camera
-        self.scene.table_cam = CameraCfg(
+        # # Set table view camera
+        # self.scene.table_cam = CameraCfg(
+        #     prim_path="{ENV_REGEX_NS}/table_cam",
+        #     update_period=0.0333,
+        #     height=128,
+        #     width=128,
+        #     data_types=["rgb", "depth"],
+        #     spawn=sim_utils.PinholeCameraCfg(
+        #         focal_length=4.0, focus_distance=400.0, horizontal_aperture=6.4, clipping_range=(0.1, 1.0e5)
+        #     ),
+        #     offset=CameraCfg.OffsetCfg(pos=(1.5, 1.0, 0.5), rot=(-0.336, -0.145, -0.053, 0.929), convention="world"),
+        # )
+        
+        # # Set table view camera
+        # self.scene.table_cam_2 = CameraCfg(
+        #     prim_path="{ENV_REGEX_NS}/table_cam_2",
+        #     update_period=0.0333,
+        #     height=128,
+        #     width=128,
+        #     data_types=["rgb", "depth"],
+        #     spawn=sim_utils.PinholeCameraCfg(
+        #         focal_length=4.0, focus_distance=400.0, horizontal_aperture=6.4, clipping_range=(0.1, 1.0e5)
+        #     ),
+        #     offset=CameraCfg.OffsetCfg(pos=(1.5, -1.0, 0.5), rot=(0.336, -0.145, 0.053, 0.929), convention="world"),
+        # )
+        
+    #     # add camera to the scene
+    # tiled_camera: TiledCameraCfg = TiledCameraCfg(
+    #     prim_path="{ENV_REGEX_NS}/Camera",
+    #     offset=TiledCameraCfg.OffsetCfg(pos=(-7.0, 0.0, 3.0), rot=(0.9945, 0.0, 0.1045, 0.0), convention="world"),
+    #     data_types=["rgb"],
+    #     spawn=sim_utils.PinholeCameraCfg(
+    #         focal_length=24.0, focus_distance=400.0, horizontal_aperture=20.955, clipping_range=(0.1, 20.0)
+    #     ),
+    #     width=100,
+    #     height=100,
+    # )
+        
+        # camera #1
+        self.scene.table_cam = TiledCameraCfg(
             prim_path="{ENV_REGEX_NS}/table_cam",
-            update_period=0.0333,
-            height=84,
-            width=84,
-            data_types=["rgb", "depth"],
+            # update_period=0.0333,
             spawn=sim_utils.PinholeCameraCfg(
-                focal_length=4.0, focus_distance=400.0, horizontal_aperture=6.4, clipping_range=(0.1, 1.0e5)
+                focal_length=24.0, focus_distance=2.0,
+                horizontal_aperture=20.955, clipping_range=(0.4, 30.0)
             ),
-            offset=CameraCfg.OffsetCfg(pos=(1.5, 1.0, 0.5), rot=(-0.336, -0.145, -0.053, 0.929), convention="world"),
+            offset=TiledCameraCfg.OffsetCfg(pos=(-1.5,  1.0, 0.5),
+                            rot=(-0.336, -0.145, -0.053, 0.929),
+                            convention="world"),
+            width=128,
+            height=128,
+            data_types=["rgb","distance_to_camera"],
         )
         
-        # Set table view camera
-        self.scene.table_cam_2 = CameraCfg(
+        # camera #2
+        self.scene.table_cam_2 = TiledCameraCfg(
             prim_path="{ENV_REGEX_NS}/table_cam_2",
-            update_period=0.0333,
-            height=84,
-            width=84,
-            data_types=["rgb", "depth"],
+            # update_period=0.0333,
             spawn=sim_utils.PinholeCameraCfg(
-                focal_length=4.0, focus_distance=400.0, horizontal_aperture=6.4, clipping_range=(0.1, 1.0e5)
+                focal_length=24.0, focus_distance=2.0,
+                horizontal_aperture=20.955, clipping_range=(0.4, 30.0)
             ),
-            offset=CameraCfg.OffsetCfg(pos=(1.5, -1.0, 0.5), rot=(0.336, -0.145, 0.053, 0.929), convention="world"),
+            offset=TiledCameraCfg.OffsetCfg(pos=(1.5, -1.0, 0.5),
+                            rot=( 0.336, -0.145,  0.053, 0.929),
+                            convention="world"),
+            width=128,
+            height=128,
+            data_types=["rgb","distance_to_camera"],
         )
+        
 
         # Listens to the required transforms
         marker_cfg = FRAME_MARKER_CFG.copy()
@@ -166,7 +211,7 @@ class FrankaCubeLiftRGBDEnvCfg(LiftRGBDEnvCfg):
         
 
 @configclass
-class FrankaCubeLiftEnvCfg_PLAY(FrankaCubeLiftRGBDEnvCfg):
+class FrankaCubeLiftRGBDEnvCfg_PLAY(FrankaCubeLiftRGBDEnvCfg):
     def __post_init__(self):
         # post init of parent
         super().__post_init__()

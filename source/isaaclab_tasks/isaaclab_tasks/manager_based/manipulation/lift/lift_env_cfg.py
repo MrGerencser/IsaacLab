@@ -26,22 +26,6 @@ from isaaclab.utils.noise import AdditiveGaussianNoiseCfg
 
 from . import mdp
 
-# Import general reward and penalty functions from core isaaclab
-from isaaclab.envs.mdp.rewards import (
-    is_terminated,
-    joint_torques_l2,
-    joint_acc_l2,
-    joint_vel_l2,
-    action_l2,
-    body_lin_acc_l2,
-    joint_vel_limits,
-    joint_deviation_l1,
-    flat_orientation_l2,
-    action_rate_l2,
-    joint_pos_limits,
-    applied_torque_limits,
-)
-
 ##
 # Scene definition
 ##
@@ -428,7 +412,7 @@ class CurriculumCfg:
 class LiftEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the lifting environment."""
 
-    scene: ObjectTableSceneCfg = ObjectTableSceneCfg(num_envs=20, env_spacing=2.5) # 4096
+    scene: ObjectTableSceneCfg = ObjectTableSceneCfg(num_envs=24, env_spacing=2.5) # 4096
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
     commands: CommandsCfg = CommandsCfg()

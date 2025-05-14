@@ -16,7 +16,7 @@ from isaaclab.managers import RewardTermCfg as RewTerm
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers import TerminationTermCfg as DoneTerm
 from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import CameraCfg
+from isaaclab.sensors import CameraCfg, TiledCameraCfg
 from isaaclab.sensors.frame_transformer.frame_transformer_cfg import FrameTransformerCfg
 from isaaclab.sim.spawners.from_files.from_files_cfg import GroundPlaneCfg, UsdFileCfg
 from isaaclab.utils import configclass
@@ -46,8 +46,11 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
     
     # Cameras
     # wrist_cam: CameraCfg = MISSING
-    table_cam: CameraCfg = MISSING
-    table_cam_2: CameraCfg = MISSING
+    # table_cam: CameraCfg = MISSING
+    # table_cam_2: CameraCfg = MISSING
+    
+    table_cam: TiledCameraCfg = MISSING
+    table_cam_2: TiledCameraCfg = MISSING
 
     # Table
     table = AssetBaseCfg(
@@ -55,19 +58,34 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
         init_state=AssetBaseCfg.InitialStateCfg(pos=[0.5, 0, 0], rot=[0.707, 0, 0, 0.707]),
         spawn=UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Mounts/SeattleLabTable/table_instanceable.usd"),
     )
+        
+    
 
-    # plane
+    # # plane
     plane = AssetBaseCfg(
         prim_path="/World/GroundPlane",
         init_state=AssetBaseCfg.InitialStateCfg(pos=[0, 0, -1.05]),
         spawn=GroundPlaneCfg(),
     )
+    
+    # # ground plane
+    # plane = AssetBaseCfg(
+    #     prim_path="/World/ground",
+    #     spawn=sim_utils.GroundPlaneCfg(size=(500.0, 500.0)),
+    # )
 
     # lights
     light = AssetBaseCfg(
         prim_path="/World/light",
-        spawn=sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=3000.0),
+        spawn=sim_utils.DomeLightCfg(color=(0.75, 0.75, 0.75), intensity=1000.0),
     )
+    
+    # warehouse
+    # warehouse = AssetBaseCfg(
+    #     prim_path="{ENV_REGEX_NS}/Warehouse",
+    #     init_state=AssetBaseCfg.InitialStateCfg(pos=[0, 0, -1.05]),
+    #     spawn=UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Warehouse/warehouse.usd"),
+    # )
 
 
 ##
@@ -99,50 +117,72 @@ class ActionsCfg:
 class ObservationsCfg:
     """Observation specifications for the MDP."""
 
+    # @configclass
+    # class PolicyCfg(ObsGroup):
+    #     joint_pos = ObsTerm(func=mdp.joint_pos_rel)
+    #     joint_vel = ObsTerm(func=mdp.joint_vel_rel)
+    #     object_position = ObsTerm(func=mdp.object_position_in_robot_root_frame)
+    #     object_orientation = ObsTerm(func=mdp.object_orientation_in_robot_frame)
+    #     target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose"})
+    #     actions = ObsTerm(func=mdp.last_action)
+
+
+    #     def __post_init__(self):
+    #         self.enable_corruption = True
+    #         self.concatenate_terms = True
+            
+    # @configclass
+    # class RGBCameraPolicyCfg(ObsGroup):
+    #     """Observations for policy group with RGB images."""
+        
+        
+        
+    #     def __post_init__(self):
+    #         self.enable_corruption = False
+    #         self.concatenate_terms = False
+        
+    # # observation groups
+    # policy: PolicyCfg = PolicyCfg()
+    # rgb_camera: RGBCameraPolicyCfg = RGBCameraPolicyCfg()
+    
     @configclass
-    class PolicyCfg(ObsGroup):
+    class ImageGoalObs(ObsGroup):
         joint_pos = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel = ObsTerm(func=mdp.joint_vel_rel)
-        object_position = ObsTerm(func=mdp.object_position_in_robot_root_frame)
-        object_orientation = ObsTerm(func=mdp.object_orientation_in_robot_frame)
         target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose"})
         actions = ObsTerm(func=mdp.last_action)
-        # ee_height = ObsTerm(func=mdp.ee_height_to_table, params={"table_height": 0.0})
-
+        
+        
+        pointcloud_features = ObsTerm(
+            func=mdp.pointcloud_cnn_features,
+            params={
+                "camera_names": ["table_cam", "table_cam_2"],
+                "robot_entity_cfg": SceneEntityCfg("robot"),
+                "target_num_points": 1024,  # Reduced from 2048 for efficiency
+                # No need for voxel parameters with PointNet++
+                "encoder_type": "ResNet2DEncoder",
+                "cnn_output_features": 256,
+                "cnn_weights_path": None,  # Optional: path to pre-trained weights
+                "use_xyz": True,  # Use XYZ as features
+            },
+        )
 
         def __post_init__(self):
-            self.enable_corruption = True
-            self.concatenate_terms = True
-            
-    @configclass
-    class RGBCameraPolicyCfg(ObsGroup):
-        """Observations for policy group with RGB images."""
-        
-        table_cam_rgb = ObsTerm(
-            func=mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("table_cam"), "data_type": "rgb", "normalize": False},
-        )
-        table_cam_depth = ObsTerm(
-            func=mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("table_cam"), "data_type": "depth", "normalize": False}, # Or "distance_to_image_plane"
-        )
-        
-        table_cam_2_rgb = ObsTerm(
-            func=mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("table_cam_2"), "data_type": "rgb", "normalize": False},
-        )
-        table_cam_2_depth = ObsTerm(
-            func=mdp.image,
-            params={"sensor_cfg": SceneEntityCfg("table_cam_2"), "data_type": "depth", "normalize": False}, # Or "distance_to_image_plane"
-        )
-        
-        def __post_init__(self):
+            # no injection of noise in images, do not flatten images
             self.enable_corruption = False
-            self.concatenate_terms = False
+            self.concatenate_terms = True
+            # super().__post_init__()
+            # # remove ground as it obstructs the camera
+            # self.scene.ground = None
+            # # viewer settings
+            # self.viewer.eye = (7.0, 0.0, 2.5)
+            # self.viewer.lookat = (0.0, 0.0, 2.5)
+
+    # single obs‐group
+    policy: ImageGoalObs = ImageGoalObs()
         
-    # observation groups
-    policy: PolicyCfg = PolicyCfg()
-    rgb_camera: RGBCameraPolicyCfg = RGBCameraPolicyCfg()
+        
+        
 
 @configclass
 class EventCfg:
@@ -180,7 +220,7 @@ class RewardsCfg:
             "object_cfg":        SceneEntityCfg("object"),
             "ee_frame_cfg":      SceneEntityCfg("ee_frame"),
         },
-        weight=7.0,
+        weight=15.0,
     )
 
     lifted = RewTerm(
@@ -190,7 +230,7 @@ class RewardsCfg:
             "lift_width":     0.01,
             "object_cfg":     SceneEntityCfg("object"),
         },
-        weight=20.0,
+        weight=10.0,
     )
     
     pos_reward = RewTerm(
@@ -455,7 +495,7 @@ class LiftRGBDEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the lifting environment."""
 
     # Scene settings
-    scene: ObjectTableSceneCfg = ObjectTableSceneCfg(num_envs=1, env_spacing=2.5) # 4096
+    scene: ObjectTableSceneCfg = ObjectTableSceneCfg(num_envs=512, env_spacing=3.0) # 4096
     # Basic settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()

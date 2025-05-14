@@ -5,6 +5,23 @@
 
 """Script to train RL agent with RL-Games."""
 
+
+from gymnasium import Wrapper
+
+class DepthDebugWrapper(Wrapper):
+    def step(self, action):
+        obs, reward, terminated, truncated, info = super().step(action)
+        try:
+            # Pylance doesn’t know about .scene, so ignore it
+            depth = self.env.unwrapped.scene.sensors["table_cam_2"].data.output["distance_to_camera"]  # type: ignore
+            print(f"[DEBUG] distance_to_camera min={depth.min().item():.4f}, max={depth.max().item():.4f}")
+            depth = depth[..., 0]  # drop channel dim
+            print(f"mean={depth.mean():.4f}, std={depth.std():.4f}")
+            print(f"percentiles: 5%={depth.quantile(0.05):.4f}, 95%={depth.quantile(0.95):.4f}")
+        except Exception:
+            print("[DEBUG] depth sensor not available")
+        return obs, reward, terminated, truncated, info
+
 """Launch Isaac Sim Simulator first."""
 
 import argparse
@@ -132,6 +149,7 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # create isaac environment
     env = gym.make(args_cli.task, cfg=env_cfg, render_mode="rgb_array" if args_cli.video else None)
+    env = DepthDebugWrapper(env)
 
     # convert to single-agent instance if required by the RL algorithm
     if isinstance(env.unwrapped, DirectMARLEnv):
