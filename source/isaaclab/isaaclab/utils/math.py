@@ -910,7 +910,7 @@ def apply_delta_pose(
     return target_pos, target_rot
 
 
-# @torch.jit.script
+@torch.jit.script
 def transform_points(
     points: torch.Tensor, pos: torch.Tensor | None = None, quat: torch.Tensor | None = None
 ) -> torch.Tensor:
@@ -1512,7 +1512,7 @@ def convert_camera_frame_orientation_convention(
 def create_rotation_matrix_from_view(
     eyes: torch.Tensor,
     targets: torch.Tensor,
-    up_axis: Literal["Y", "Z"] = "Z",
+    up_axis: Literal["Y", "-Y", "Z"] = "Z",
     device: str = "cpu",
 ) -> torch.Tensor:
     """Compute the rotation matrix from world to view coordinates.
@@ -1544,6 +1544,8 @@ def create_rotation_matrix_from_view(
     """
     if up_axis == "Y":
         up_axis_vec = torch.tensor((0, 1, 0), device=device, dtype=torch.float32).repeat(eyes.shape[0], 1)
+    elif up_axis == "-Y":
+        up_axis_vec = torch.tensor((0, -1, 0), device=device, dtype=torch.float32).repeat(eyes.shape[0], 1)
     elif up_axis == "Z":
         up_axis_vec = torch.tensor((0, 0, 1), device=device, dtype=torch.float32).repeat(eyes.shape[0], 1)
     else:

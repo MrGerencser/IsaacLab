@@ -12,9 +12,15 @@ from isaaclab.sim.spawners.from_files.from_files_cfg import UsdFileCfg
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import ISAAC_NUCLEUS_DIR
 
+from isaaclab.markers.config import FRAME_MARKER_CFG
+from isaaclab.markers import VisualizationMarkers
+
+
 
 from isaaclab_tasks.manager_based.manipulation.lift import mdp
 from isaaclab_tasks.manager_based.manipulation.lift.lift_rgbd_env_cfg import LiftRGBDEnvCfg
+
+# from isaaclab.markers import FrameMarker
 
 ##
 # Pre-defined configs
@@ -127,36 +133,79 @@ class FrankaCubeLiftRGBDEnvCfg(LiftRGBDEnvCfg):
         # camera #1
         self.scene.table_cam = TiledCameraCfg(
             prim_path="{ENV_REGEX_NS}/table_cam",
-            # update_period=0.0333,
+            update_period=0.05,  # Explicit update frequency (20Hz)
             spawn=sim_utils.PinholeCameraCfg(
-                focal_length=24.0, focus_distance=2.0,
-                horizontal_aperture=20.955, clipping_range=(0.4, 30.0)
+                focal_length=18.0,  # Slightly wider field of view
+                focus_distance=1.5,  # Focus closer to the workspace center
+                horizontal_aperture=20.955,
+                clipping_range=(0.3, 3.0)  # See closer objects
             ),
-            offset=TiledCameraCfg.OffsetCfg(pos=(-1.5,  1.0, 0.5),
-                            rot=(-0.336, -0.145, -0.053, 0.929),
-                            convention="world"),
-            width=128,
-            height=128,
-            data_types=["rgb","distance_to_camera"],
+            offset=TiledCameraCfg.OffsetCfg(
+                pos=(1.5, 0.75, 0.75),  # Better angle for grasping
+                rot=(-0.268, -0.232, -0.067, 0.933),
+                convention="world"
+            ),
+            width=224,  # Higher resolution for better features
+            height=224,
+            data_types=["rgb", "distance_to_camera", "depth"],  # Add depth for better 3D info
         )
-        
-        # camera #2
+
+        # camera #2 - add top-down view for better grasping visibility
         self.scene.table_cam_2 = TiledCameraCfg(
             prim_path="{ENV_REGEX_NS}/table_cam_2",
-            # update_period=0.0333,
+            update_period=0.05,
             spawn=sim_utils.PinholeCameraCfg(
-                focal_length=24.0, focus_distance=2.0,
-                horizontal_aperture=20.955, clipping_range=(0.4, 30.0)
+                focal_length=18.0,
+                focus_distance=2.0,
+                horizontal_aperture=20.955,
+                clipping_range=(0.3, 3.0)
             ),
-            offset=TiledCameraCfg.OffsetCfg(pos=(1.5, -1.0, 0.5),
-                            rot=( 0.336, -0.145,  0.053, 0.929),
-                            convention="world"),
-            width=128,
-            height=128,
-            data_types=["rgb","distance_to_camera"],
+            offset=TiledCameraCfg.OffsetCfg(
+                pos=(0.8, 0.0, 2.0),  # More top-down view
+                rot=(0.0, -0.634, 0.0, 0.773),  # 90-degree rotation for top-down
+                convention="world"
+            ),
+            width=224,
+            height=224,
+            data_types=["rgb", "distance_to_camera", "depth"],
         )
         
-
+        
+        # # Add camera mounts as rigid bodies (will work with frame transformers)
+        # self.scene.cam1_mount = RigidObjectCfg(
+        #     prim_path="{ENV_REGEX_NS}/cam1_mount",
+        #     init_state=RigidObjectCfg.InitialStateCfg(
+        #         pos=(1.5, 1.0, 0.5), 
+        #         rot=(-0.336, -0.145, -0.053, 0.929)
+        #     ),
+        #     spawn=UsdFileCfg(
+        #         usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd",
+        #         scale=(0.02, 0.02, 0.02),
+        #         visible=True,
+        #         rigid_props=RigidBodyPropertiesCfg(
+        #             kinematic_enabled=True,  # Make it kinematic (non-physical)
+        #             disable_gravity=True,    # Disable gravity for extra safety
+        #         ),
+        #     ),
+        # )
+        
+        # self.scene.cam2_mount = RigidObjectCfg(
+        #     prim_path="{ENV_REGEX_NS}/cam2_mount",
+        #     init_state=RigidObjectCfg.InitialStateCfg(
+        #         pos=(1.5, -1.0, 0.5), 
+        #         rot=(0.336, -0.145, 0.053, 0.929)
+        #     ),
+        #     spawn=UsdFileCfg(
+        #         usd_path=f"{ISAAC_NUCLEUS_DIR}/Props/Blocks/DexCube/dex_cube_instanceable.usd",
+        #         scale=(0.02, 0.02, 0.02),
+        #         visible=True,
+        #         rigid_props=RigidBodyPropertiesCfg(
+        #             kinematic_enabled=True,  # Make it kinematic (non-physical)
+        #             disable_gravity=True,    # Disable gravity for extra safety
+        #         ),
+        #     ),
+        # )
+        
         # Listens to the required transforms
         marker_cfg = FRAME_MARKER_CFG.copy()
         marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
@@ -194,7 +243,8 @@ class FrankaCubeLiftRGBDEnvCfg(LiftRGBDEnvCfg):
             ],
         )
         
-        
+
+
         # visualize robot frame
         self.scene.robot_frame = FrameTransformerCfg(
             prim_path="{ENV_REGEX_NS}/Robot/panda_link0",
@@ -209,6 +259,47 @@ class FrankaCubeLiftRGBDEnvCfg(LiftRGBDEnvCfg):
             ],
         )
         
+        
+        # # Add frame visualizers for camera mounts
+        # marker_cfg = FRAME_MARKER_CFG.copy()
+        # marker_cfg.markers["frame"].scale = (0.1, 0.1, 0.1)
+        # marker_cfg.prim_path = "/Visuals/CameraFrames" 
+        
+
+        
+        # # Camera 1 frame transformer (now works because we have a rigid body)
+        # self.scene.cam1_frame = FrameTransformerCfg(
+        #     prim_path="{ENV_REGEX_NS}/cam1_mount",
+        #     debug_vis=True,
+        #     visualizer_cfg=marker_cfg,
+        #     target_frames=[
+        #         FrameTransformerCfg.FrameCfg(
+        #             prim_path="{ENV_REGEX_NS}/cam1_mount",
+        #             name="cam1_frame",
+        #             offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
+        #         ),
+        #     ],
+        # )
+        
+        # # Camera 2 frame transformer
+        # self.scene.cam2_frame = FrameTransformerCfg(
+        #     prim_path="{ENV_REGEX_NS}/cam2_mount",
+        #     debug_vis=True,
+        #     visualizer_cfg=marker_cfg,
+        #     target_frames=[
+        #         FrameTransformerCfg.FrameCfg(
+        #             prim_path="{ENV_REGEX_NS}/cam2_mount",
+        #             name="cam2_frame",
+        #             offset=OffsetCfg(pos=[0.0, 0.0, 0.0]),
+        #         ),
+        #     ],
+        # )
+
+        
+
+        
+
+        
 
 @configclass
 class FrankaCubeLiftRGBDEnvCfg_PLAY(FrankaCubeLiftRGBDEnvCfg):
@@ -216,7 +307,12 @@ class FrankaCubeLiftRGBDEnvCfg_PLAY(FrankaCubeLiftRGBDEnvCfg):
         # post init of parent
         super().__post_init__()
         # make a smaller scene for play
-        self.scene.num_envs = 50
+        self.scene.num_envs = 1
         self.scene.env_spacing = 2.5
         # disable randomization for play
         self.observations.policy.enable_corruption = False
+        
+        
+
+
+

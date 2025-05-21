@@ -51,6 +51,8 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
     
     table_cam: TiledCameraCfg = MISSING
     table_cam_2: TiledCameraCfg = MISSING
+    
+    
 
     # Table
     table = AssetBaseCfg(
@@ -86,6 +88,9 @@ class ObjectTableSceneCfg(InteractiveSceneCfg):
     #     init_state=AssetBaseCfg.InitialStateCfg(pos=[0, 0, -1.05]),
     #     spawn=UsdFileCfg(usd_path=f"{ISAAC_NUCLEUS_DIR}/Environments/Simple_Warehouse/warehouse.usd"),
     # )
+    
+    
+
 
 
 ##
@@ -146,40 +151,54 @@ class ObservationsCfg:
     # rgb_camera: RGBCameraPolicyCfg = RGBCameraPolicyCfg()
     
     @configclass
-    class ImageGoalObs(ObsGroup):
+    class PolicyCfg(ObsGroup):
+        """Observations for the policy."""
+        # Standard proprioceptive observations
         joint_pos = ObsTerm(func=mdp.joint_pos_rel)
         joint_vel = ObsTerm(func=mdp.joint_vel_rel)
+        # object_position = ObsTerm(func=mdp.object_position_in_robot_root_frame)
+        # object_orientation = ObsTerm(func=mdp.object_orientation_in_robot_frame) # Example, if needed
         target_object_position = ObsTerm(func=mdp.generated_commands, params={"command_name": "object_pose"})
         actions = ObsTerm(func=mdp.last_action)
-        
-        
+
+        # Multi-camera RGB-D CNN features
         pointcloud_features = ObsTerm(
             func=mdp.pointcloud_cnn_features,
             params={
                 "camera_names": ["table_cam", "table_cam_2"],
-                "robot_entity_cfg": SceneEntityCfg("robot"),
-                "target_num_points": 1024,  # Reduced from 2048 for efficiency
-                # No need for voxel parameters with PointNet++
-                "encoder_type": "ResNet2DEncoder",
-                "cnn_output_features": 256,
-                "cnn_weights_path": None,  # Optional: path to pre-trained weights
-                "use_xyz": True,  # Use XYZ as features
-            },
+                "target_num_points": 2048,
+                "workspace_min_bounds": [0.1, -0.5, -0.01],
+                "workspace_max_bounds": [1.0, 0.5, 0.4],
+                "voxel_size": 0.05,
+                "grid_range_min": [0.1, -0.5, -0.01],
+                "grid_range_max": [1.0, 0.5, 0.4],
+                "voxel_mode": "density", # "binary" or "density"
+                "encoder_type": "i2pmae", # "i2pmae", "static3d", "resnet2d", "pvcnn"
+                "cnn_output_features": 384,
+                "cnn_weights_path": None, # Optional: path to pretrained CNN weights
+                # "input_channels": 0, # For PVCNN: extra features beyond XYZ; For Voxel Encoders: typically 1 (occupancy/density)
+                # "resnet_model_name": "resnet18", # For resnet2d
+                # "resnet_pretrained": True,       # For resnet2d
+                
+                # Point cloud visualization parameters:
+                "visualize_debug_pointcloud": True,  # Set to True to enable input point cloud visualization
+
+                # Voxel grid visualization parameters:
+                "visualize_voxel_grid_debug": False, # Set to True to enable voxel grid visualization
+                "debug_voxel_face_color_rgb": [0.0, 0.0, 1.0], # Blue for voxel faces
+                "debug_voxel_edge_color_str": None,       # e.g., 'k' for black edges, or None
+                "debug_voxel_alpha": 0.5,                 # Transparency of voxel faces
+                "debug_voxel_threshold": 0.01,             # Threshold for considering a voxel occupied (for density mode)
+                "debug_time": False, # Set to True to enable timing information
+            }
         )
 
         def __post_init__(self):
-            # no injection of noise in images, do not flatten images
-            self.enable_corruption = False
+            self.enable_corruption = True # Or False, depending on your training needs
             self.concatenate_terms = True
-            # super().__post_init__()
-            # # remove ground as it obstructs the camera
-            # self.scene.ground = None
-            # # viewer settings
-            # self.viewer.eye = (7.0, 0.0, 2.5)
-            # self.viewer.lookat = (0.0, 0.0, 2.5)
 
-    # single obs‐group
-    policy: ImageGoalObs = ImageGoalObs()
+    # Instantiate the observation group
+    policy: PolicyCfg = PolicyCfg()
         
         
         
@@ -220,7 +239,7 @@ class RewardsCfg:
             "object_cfg":        SceneEntityCfg("object"),
             "ee_frame_cfg":      SceneEntityCfg("ee_frame"),
         },
-        weight=15.0,
+        weight=7.0,
     )
 
     lifted = RewTerm(
@@ -230,7 +249,7 @@ class RewardsCfg:
             "lift_width":     0.01,
             "object_cfg":     SceneEntityCfg("object"),
         },
-        weight=10.0,
+        weight=15.0,
     )
     
     pos_reward = RewTerm(
@@ -274,11 +293,11 @@ class RewardsCfg:
     # weight=-0.2,     # so slip=thr ⇒ penalty≈−0.2
     # )
     
-    lift_shaping = RewTerm(
-        func=mdp.potential_based_lift,
-        params={"minimal_height": 0.04, "object_cfg": SceneEntityCfg("object")},
-        weight=9.1,    # so full-lift ⇒ ≈+1.0 total shaping
-    )
+    # lift_shaping = RewTerm(
+    #     func=mdp.potential_based_lift,
+    #     params={"minimal_height": 0.04, "object_cfg": SceneEntityCfg("object")},
+    #     weight=9.1,    # so full-lift ⇒ ≈+1.0 total shaping
+    # )
 
     # table_penalty = RewTerm(
     # func=mdp.ee_table_penalty,
@@ -287,9 +306,8 @@ class RewardsCfg:
     # )
 
 
-
     # action penalty
-    action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-4)
+    action_rate = RewTerm(func=mdp.action_rate_l2_no_gripper, weight=-1e-4)
 
     # joint velocity penalty
     joint_vel = RewTerm(
@@ -333,50 +351,50 @@ class TerminationsCfg:
 class CurriculumCfg:
     """Curriculum terms for the MDP."""
     
-    reach = CurrTerm(
-        # num_steps = iterations * num_steps_per_env
-        func=mdp.gradually_modify_reward_weight, params={
-            "term_name": "reach",
-            "start_weight": 7.0,
-            "end_weight": 0.0,
-            "num_steps": 2000 * 24,
-            "curve_type": "linear",
-            "start_step": 100 * 24,
-        }
-    )
+    # reach = CurrTerm(
+    #     # num_steps = iterations * num_steps_per_env
+    #     func=mdp.gradually_modify_reward_weight, params={
+    #         "term_name": "reach",
+    #         "start_weight": 7.0,
+    #         "end_weight": 0.0,
+    #         "num_steps": 2000 * 24,
+    #         "curve_type": "linear",
+    #         "start_step": 100 * 24,
+    #     }
+    # )
     
-    pos_reward_ramp = CurrTerm(
-        func=mdp.gradually_modify_reward_weight, params={
-            "term_name": "pos_reward",
-            "start_weight": 10.0,
-            "end_weight": 30.0,
-            "num_steps": 2000 * 24,
-            "curve_type": "linear",
-            "start_step": 1000 * 24,
-        }
-    )
+    # pos_reward_ramp = CurrTerm(
+    #     func=mdp.gradually_modify_reward_weight, params={
+    #         "term_name": "pos_reward",
+    #         "start_weight": 10.0,
+    #         "end_weight": 30.0,
+    #         "num_steps": 2000 * 24,
+    #         "curve_type": "linear",
+    #         "start_step": 1000 * 24,
+    #     }
+    # )
     
-    pos_reward_decay = CurrTerm(
-        func=mdp.gradually_modify_reward_weight, params={
-            "term_name": "pos_reward",
-            "start_weight": 30.0,
-            "end_weight": 5.0,
-            "num_steps": 2000 * 24,
-            "curve_type": "linear",
-            "start_step": 2500 * 24,
-        }
-    )
+    # pos_reward_decay = CurrTerm(
+    #     func=mdp.gradually_modify_reward_weight, params={
+    #         "term_name": "pos_reward",
+    #         "start_weight": 30.0,
+    #         "end_weight": 5.0,
+    #         "num_steps": 2000 * 24,
+    #         "curve_type": "linear",
+    #         "start_step": 2500 * 24,
+    #     }
+    # )
     
-    ori_reward = CurrTerm(
-        func=mdp.gradually_modify_reward_weight, params={
-            "term_name": "ori_reward",
-            "start_weight": 0.0,
-            "end_weight": 20.0,
-            "num_steps": 3000 * 24,
-            "curve_type": "linear",
-            "start_step": 500 * 24,
-        }
-    )
+    # ori_reward = CurrTerm(
+    #     func=mdp.gradually_modify_reward_weight, params={
+    #         "term_name": "ori_reward",
+    #         "start_weight": 0.0,
+    #         "end_weight": 20.0,
+    #         "num_steps": 3000 * 24,
+    #         "curve_type": "linear",
+    #         "start_step": 500 * 24,
+    #     }
+    # )
     
     # slip_penalty_ramp = CurrTerm(
     #     func=mdp.gradually_modify_reward_weight,
@@ -390,17 +408,17 @@ class CurriculumCfg:
     #     }
     # )
     
-    lift_shaping = CurrTerm(
-        func= mdp.gradually_modify_reward_weight,
-        params={
-            "term_name": "lift_shaping",
-            "start_weight": 9.1,
-            "end_weight": 0.0,
-            "num_steps": 1500 * 24,
-            "curve_type": "linear",
-            "start_step": 1500 * 24,
-        }
-    )
+    # lift_shaping = CurrTerm(
+    #     func= mdp.gradually_modify_reward_weight,
+    #     params={
+    #         "term_name": "lift_shaping",
+    #         "start_weight": 9.1,
+    #         "end_weight": 0.0,
+    #         "num_steps": 1500 * 24,
+    #         "curve_type": "linear",
+    #         "start_step": 1500 * 24,
+    #     }
+    # )
     
     # table_penalty_ramp = CurrTerm(
     # func=mdp.gradually_modify_reward_weight,
@@ -495,7 +513,7 @@ class LiftRGBDEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the lifting environment."""
 
     # Scene settings
-    scene: ObjectTableSceneCfg = ObjectTableSceneCfg(num_envs=512, env_spacing=3.0) # 4096
+    scene: ObjectTableSceneCfg = ObjectTableSceneCfg(num_envs=128, env_spacing=3.0) # 4096
     # Basic settings
     observations: ObservationsCfg = ObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
